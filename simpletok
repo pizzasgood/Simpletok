@@ -1,0 +1,169 @@
+#!/bin/bash
+# I hereby release all rights to this script.  It belongs to humanity.
+# 2018.08.02 Jeremy Adelsgruber
+###
+
+NAME="$(basename "$0")"
+VERSION='1.0'
+ESCAPE='\'
+DELIMS="$IFS"
+
+version(){
+	echo "$NAME $VERSION"
+	echo "This software is in the Public Domain."
+	echo "You have the right to modify and redistribute this software."
+	echo "This software comes with NO WARRANTY, to the extent pemitted by law."
+	exit
+}
+
+usage(){
+	echo "Usage: $NAME [-h|-v|-c|-f N] [-d S] [-e C] [STRING]"
+	echo
+	echo "Perform basic tokenization of potentially quoted strings."
+	echo
+	echo "  -h, --help        Display this message and exit"
+	echo "  -v, --version     Display version and exit"
+	echo "  -c, --count       Print the number of tokens"
+	echo "  -f N, --field N   Print token N (zero indexed, negative-friendly) of each line"
+	echo "  -d S, --delims S  Define custom single-char delimiters (default: IFS env var)"
+	echo "  -e C, --escape C  Define custom escape character (default: '$ESCAPE')"
+	echo
+	echo "If no options provided, print each token on a new line."
+	echo "If no string provided, read from STDIN."
+	echo
+	echo "Sequential delimiters with no text between them count as just one."
+	echo "Delimiters inside quotes or escaped by a backslash will behave as text."
+	echo "Double-quotes may be escaped by a backslash.  Single-quotes may not."
+	echo "Backslashes not preceeding a double-quote or delimiter are treated as text."
+	echo
+	echo "Examples:"
+	echo "    \$ $NAME -f 1 '\"Alice McSurname\" Bob\\ von\\ Nachname Carl'"
+	echo "    Bob von Nachname"
+	echo
+	echo "    \$ cat /tmp/somefile"
+	echo "    ln -s \"/path/to/a file with spaces/in it\" '/path/to/link 1'"
+	echo "    ln -s -f \"/path/to/another/file\" /path/to/link\\ 2"
+	echo "    ln -s -f /this\" p'ath/\"is/'v\"e\"r\"y'/du\\\"mb\\yo /path/to/'link 3'"
+	echo
+	echo "    $ simpletok -f -2 < /tmp/somefile"
+	echo "    /path/to/a file with spaces/in it"
+	echo "    /path/to/another/file"
+	echo "    /this p'ath/is/v\"e\"r\"y/du\"mb\\yo"
+	echo
+	echo "    $ simpletok -f -1 < /tmp/somefile"
+	echo "    /path/to/link 1"
+	echo "    /path/to/link 2"
+	echo "    /path/to/link 3"
+	echo
+	echo "    \$ $NAME -f -2 < /tmp/somefile"
+	echo "    /path/to/a file with spaces/in it"
+	echo "    /path/to/another/file"
+	echo
+	echo "    \$ $NAME -f -1 < /tmp/somefile"
+	echo "    /path/to/link 1"
+	echo "    /path/to/link 2"
+	exit
+}
+
+parse(){
+	LINE="$1"
+	LEN="${#LINE}"
+	let 'MAX=LEN-1'
+	MODE='raw'
+	unset TOKEN
+	unset TOKENS
+
+	#tokenize $LINE
+	if [ "$LINE" ]; then
+		for i in $(seq 0 $MAX); do
+			CHAR="${LINE:i:1}"
+			if [ "$MODE" = "single" ]; then
+				#we're currenly inside single-quotes
+				if [ "$CHAR" = "'" ]; then
+					MODE="raw"
+				else
+					TOKEN+="$CHAR"
+				fi
+			elif [ "$MODE" = "double" ]; then
+				#we're currenly inside double-quotes
+				if [ "$CHAR" = '"' ]; then
+					MODE="raw"
+				elif [ "$CHAR" = "$ESCAPE" ]; then
+					LAST_MODE="$MODE"
+					MODE="escape"
+				else
+					TOKEN+="$CHAR"
+				fi
+			elif [ "$MODE" = "escape" ]; then
+				#an escape character was found, but we need to make sure
+				#it's either escaping a double-quote an unquoted delimiter,
+				#otherwise we'll need to put it back
+				if [ "$CHAR" != '"' ] && ( [ $(expr index "$DELIMS" "$CHAR") -eq 0 ] || [ "$LAST_MODE" != "raw" ] ); then
+					#nothing to escape, so record the escape character after all
+					TOKEN+="$ESCAPE"
+				fi
+				MODE="$LAST_MODE"
+				TOKEN+="$CHAR"
+			else
+				#we're at the outermost level, reading raw unquoted chars
+				if [ "$CHAR" = "'" ]; then
+					MODE="single"
+				elif [ "$CHAR" = '"' ]; then
+					MODE="double"
+				elif [ "$CHAR" = "$ESCAPE" ]; then
+					LAST_MODE="$MODE"
+					MODE="escape"
+				elif [ $(expr index "$DELIMS" "$CHAR") -gt 0 ]; then
+					if [ "$TOKEN" ]; then
+						TOKENS[${#TOKENS[@]}]="$TOKEN"
+						TOKEN=''
+					fi
+				else
+					TOKEN+="$CHAR"
+				fi
+			fi
+		done
+		#check if we have a trailing escape character to re-add
+		[ "$MODE" = "escape" ] && TOKEN+="$ESCAPE"
+		#add the final token to the list
+		if [ "$TOKEN" ]; then
+			TOKENS[${#TOKENS[@]}]="$TOKEN"
+			TOKEN=''
+		fi
+	fi
+	
+	#now get the user their result
+	if [ "$COUNT" ]; then
+		echo ${#TOKENS[@]}
+	elif [ "$FIELD" ]; then
+		echo "${TOKENS[$FIELD]}"
+	else
+		for i in "${TOKENS[@]}"; do
+			echo "$i"
+		done
+	fi
+}
+
+#parameters
+while [ "$1" ]; do
+	case "$1" in
+		-h|--help) usage; break;;
+		-v|--version) version; break;;
+		-c|--count) COUNT="true";;
+		-f|--field) FIELD="$2"; shift;;
+		-e|--escape) ESCAPE="$2"; shift;;
+		-d|--delims) DELIMS="$2"; shift;;
+		*) DATA="$*"; break;;
+	esac
+	shift
+done
+
+if [ "$DATA" ]; then
+	#string provided
+	parse "$DATA"
+else
+	#no string; try STDIN
+	while read -r LINE; do
+		parse "$LINE"
+	done
+fi
