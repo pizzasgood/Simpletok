@@ -45,23 +45,15 @@ usage(){
 	echo "    ln -s -f \"/path/to/another/file\" /path/to/link\\ 2"
 	echo "    ln -s -f /this\" p'ath/\"is/'v\"e\"r\"y'/du\\\"mb\\yo /path/to/'link 3'"
 	echo
-	echo "    $ simpletok -f -2 < /tmp/somefile"
+	echo "    \$ $NAME -f -2 < /tmp/somefile"
 	echo "    /path/to/a file with spaces/in it"
 	echo "    /path/to/another/file"
 	echo "    /this p'ath/is/v\"e\"r\"y/du\"mb\\yo"
 	echo
-	echo "    $ simpletok -f -1 < /tmp/somefile"
-	echo "    /path/to/link 1"
-	echo "    /path/to/link 2"
-	echo "    /path/to/link 3"
-	echo
-	echo "    \$ $NAME -f -2 < /tmp/somefile"
-	echo "    /path/to/a file with spaces/in it"
-	echo "    /path/to/another/file"
-	echo
 	echo "    \$ $NAME -f -1 < /tmp/somefile"
 	echo "    /path/to/link 1"
 	echo "    /path/to/link 2"
+	echo "    /path/to/link 3"
 	exit
 }
 
