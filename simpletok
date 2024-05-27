@@ -60,7 +60,7 @@ usage(){
 parse(){
 	LINE="$1"
 	LEN="${#LINE}"
-	let 'MAX=LEN-1'
+	MAX=$((LEN-1))
 	MODE='raw'
 	unset TOKEN
 	unset TOKENS
@@ -90,7 +90,7 @@ parse(){
 				#an escape character was found, but we need to make sure
 				#it's either escaping a double-quote an unquoted delimiter,
 				#otherwise we'll need to put it back
-				if [ "$CHAR" != '"' ] && ( [ $(expr index "$DELIMS" "$CHAR") -eq 0 ] || [ "$LAST_MODE" != "raw" ] ); then
+				if [ "$CHAR" != '"' ] && { [[ "$DELIMS" != *"$CHAR"* ]] || [ "$LAST_MODE" != "raw" ]; }; then
 					#nothing to escape, so record the escape character after all
 					TOKEN+="$ESCAPE"
 				fi
@@ -105,7 +105,7 @@ parse(){
 				elif [ "$CHAR" = "$ESCAPE" ]; then
 					LAST_MODE="$MODE"
 					MODE="escape"
-				elif [ $(expr index "$DELIMS" "$CHAR") -gt 0 ]; then
+				elif [[ "$DELIMS" == *"$CHAR"* ]]; then
 					if [ "$TOKEN" ]; then
 						TOKENS[${#TOKENS[@]}]="$TOKEN"
 						TOKEN=''
